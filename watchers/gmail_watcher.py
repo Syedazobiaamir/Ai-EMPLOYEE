@@ -284,20 +284,23 @@ _This email was flagged as important by Gmail. Process per Company_Handbook rule
         log_file.write_text(json.dumps(entries, indent=2), encoding='utf-8')
 
 
-def setup_gmail_session(session_path: Path = DEFAULT_GMAIL_SESSION):
-    """Open a visible browser so the user can log in to Gmail and save the session."""
-    from playwright.sync_api import sync_playwright
+GMAIL_PROFILE_DIR = Path(__file__).parent.parent / 'config' / 'gmail_profile'
 
-    session_path.parent.mkdir(parents=True, exist_ok=True)
-    print('Opening Gmail in browser. Log in, then press Enter here to save session.')
+
+def setup_gmail_session(profile_dir: Path = GMAIL_PROFILE_DIR):
+    """Open a persistent browser profile, wait for Gmail inbox to load, then close — session persists on disk."""
+    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+
+    profile_dir.mkdir(parents=True, exist_ok=True)
+    print('Opening Gmail in browser. Log in to your account — session saves automatically.')
+    print(f'Profile stored at: {profile_dir}')
 
     with sync_playwright() as p:
-        browser = p.chromium.launch(
+        ctx = p.chromium.launch_persistent_context(
+            user_data_dir=str(profile_dir),
             headless=False,
             slow_mo=300,
-            args=['--no-sandbox', '--window-size=1280,900'],
-        )
-        ctx = browser.new_context(
+            args=['--no-sandbox', '--window-size=1280,900', '--window-position=100,50'],
             viewport={'width': 1280, 'height': 900},
             user_agent=(
                 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
@@ -305,94 +308,51 @@ def setup_gmail_session(session_path: Path = DEFAULT_GMAIL_SESSION):
                 'Chrome/122.0.0.0 Safari/537.36'
             ),
         )
-        page = ctx.new_page()
+        page = ctx.pages[0] if ctx.pages else ctx.new_page()
         page.goto('https://mail.google.com')
-        input('\nBrowser open — log in to Gmail, then press Enter here...\n')
-        ctx.storage_state(path=str(session_path))
-        print(f'Session saved to: {session_path}')
-        browser.close()
+
+        print('Waiting for Gmail inbox to load (up to 3 minutes)...')
+        try:
+            # Wait until the Compose button appears — means fully logged in
+            page.wait_for_selector('[gh="cm"], [data-tooltip="Compose"]', timeout=180000)
+            print('Gmail logged in! Profile saved. You can now use --send-approved.')
+        except PlaywrightTimeout:
+            print('ERROR: Login timed out. Please try again.')
+        finally:
+            ctx.close()
 
 
 def send_via_browser(to: str, subject: str, body: str,
-                     session_path: Path = DEFAULT_GMAIL_SESSION) -> dict:
-    """Compose and send an email via Gmail in a visible Playwright browser."""
-    from playwright.sync_api import sync_playwright, TimeoutError as PlaywrightTimeout
+                     profile_dir: Path = GMAIL_PROFILE_DIR) -> dict:
+    """Open Gmail compose window in the user's default Chrome (already logged in)."""
+    import urllib.parse
+    import subprocess
+    import time
 
-    print(f'\nOpening Gmail browser → sending to: {to}')
+    print(f'\nOpening Gmail compose in browser -> sending to: {to}')
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch(
-            headless=False,
-            slow_mo=500,
-            args=['--no-sandbox', '--window-size=1280,900', '--window-position=100,50'],
-        )
-        ctx_kwargs = {
-            'viewport': {'width': 1280, 'height': 900},
-            'user_agent': (
-                'Mozilla/5.0 (Windows NT 10.0; Win64; x64) '
-                'AppleWebKit/537.36 (KHTML, like Gecko) '
-                'Chrome/122.0.0.0 Safari/537.36'
-            ),
-        }
-        if session_path.exists():
-            ctx_kwargs['storage_state'] = str(session_path)
-            print(f'Loaded Gmail session: {session_path}')
-        else:
-            print(f'WARNING: No Gmail session at {session_path}')
-            print('Run: python gmail_watcher.py --vault AI_Employee_Vault --setup-gmail')
+    # Build Gmail compose URL — pre-fills To, Subject, Body
+    params = urllib.parse.urlencode({'view': 'cm', 'to': to, 'su': subject, 'body': body})
+    url = f'https://mail.google.com/mail/?{params}'
 
-        ctx = browser.new_context(**ctx_kwargs)
-        page = ctx.new_page()
+    print(f'To:      {to}')
+    print(f'Subject: {subject}')
+    print(f'Body:    {body[:80]}...')
+    print('Opening Gmail compose window in Chrome...')
+    print('>>> Click SEND in the browser to deliver the email <<<')
 
-        try:
-            page.goto('https://mail.google.com')
-            # Wait for inbox to load
-            page.wait_for_selector('[gh="cm"], [data-tooltip="Compose"]', timeout=30000)
-            print('Gmail loaded.')
+    # Open in default browser (Chrome, which is already logged into Gmail)
+    import webbrowser
+    webbrowser.open(url)
 
-            # Click Compose
-            page.locator('[gh="cm"]').first.click()
-            print('Compose clicked.')
+    # Wait for user to send
+    time.sleep(8)
 
-            # Wait for compose window To field
-            page.wait_for_selector('div[name="to"]', timeout=10000)
-
-            # Fill To
-            page.locator('div[name="to"]').click()
-            page.keyboard.type(to)
-            page.keyboard.press('Tab')
-            print(f'To: {to}')
-
-            # Fill Subject
-            page.locator('input[name="subjectbox"]').click()
-            page.keyboard.type(subject)
-            print(f'Subject: {subject}')
-
-            # Fill Body
-            page.locator('div[aria-label="Message Body"]').click()
-            page.keyboard.type(body)
-            print(f'Body typed ({len(body)} chars)')
-
-            # Send via Ctrl+Enter (most reliable Gmail shortcut)
-            page.keyboard.press('Control+Enter')
-            print('Email sent!')
-
-            page.wait_for_timeout(3000)
-            return {'status': 'sent', 'method': 'browser_ui', 'to': to, 'subject': subject}
-
-        except PlaywrightTimeout as e:
-            print(f'Timeout: {e}')
-            return {'status': 'error', 'method': 'browser_ui', 'error': str(e)}
-        except Exception as e:
-            print(f'Error: {e}')
-            return {'status': 'error', 'method': 'browser_ui', 'error': str(e)}
-        finally:
-            page.wait_for_timeout(2000)
-            browser.close()
+    return {'status': 'compose_opened', 'method': 'browser_ui', 'to': to, 'subject': subject}
 
 
 def send_approved_emails(vault_path: Path, dry_run: bool = False,
-                         session_path: Path = DEFAULT_GMAIL_SESSION):
+                         profile_dir: Path = GMAIL_PROFILE_DIR):
     """Send all approved APPROVAL_EMAIL_*.md files from /Approved/ via browser UI."""
     import re
 
@@ -437,7 +397,7 @@ def send_approved_emails(vault_path: Path, dry_run: bool = False,
             print('[DRY RUN] Would send via Gmail browser. File stays in /Approved/')
             continue
 
-        result = send_via_browser(to_addr, subject, body, session_path)
+        result = send_via_browser(to_addr, subject, body, profile_dir)
         print(f'Result: {result}')
 
         # Log
