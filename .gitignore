@@ -1,0 +1,49 @@
+# ── Credentials & secrets ──────────────────────────────────────────
+config/gmail_credentials.json
+config/gmail_token.json
+config/gmail_session.json
+config/*.json
+config/.env
+.env
+
+# ── WhatsApp persistent browser profile (contains session keys) ────
+config/whatsapp_profile/
+config/whatsapp_session/
+config/whatsapp_session.json
+
+# ── LinkedIn session ───────────────────────────────────────────────
+config/linkedin_session.json
+
+# ── Vault personal data (invoices, logs, done items) ──────────────
+AI_Employee_Vault/Logs/
+AI_Employee_Vault/Done/
+AI_Employee_Vault/Inbox/
+AI_Employee_Vault/Pending_Approval/
+AI_Employee_Vault/Approved/
+AI_Employee_Vault/Rejected/
+AI_Employee_Vault/Briefings/
+AI_Employee_Vault/Invoices/
+AI_Employee_Vault/Accounting/
+
+# ── Keep vault structure but not personal content ──────────────────
+!AI_Employee_Vault/Needs_Action/.gitkeep
+!AI_Employee_Vault/Plans/.gitkeep
+
+# ── Python ────────────────────────────────────────────────────────
+__pycache__/
+*.py[cod]
+*.pyo
+.pytest_cache/
+*.egg-info/
+dist/
+build/
+.venv/
+venv/
+
+# ── Node (MCP server) ─────────────────────────────────────────────
+mcp_servers/email_mcp/node_modules/
+
+# ── OS ────────────────────────────────────────────────────────────
+.DS_Store
+Thumbs.db
+desktop.ini
