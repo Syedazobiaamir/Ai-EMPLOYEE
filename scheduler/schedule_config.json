@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "created": "2026-02-23T16:17:51.894368",
+  "platform": "windows",
+  "tasks": [
+    {
+      "name": "AIEmployee_Orchestrator",
+      "description": "Start AI Employee Orchestrator on login",
+      "trigger": "on_login",
+      "delay": "1_minute",
+      "command": "python orchestrator.py --vault AI_Employee_Vault --no-gmail"
+    },
+    {
+      "name": "AIEmployee_DailyBriefing",
+      "description": "Generate daily status briefing",
+      "trigger": "daily_at_08:00",
+      "command": "claude --print '/daily-briefing'"
+    },
+    {
+      "name": "AIEmployee_LinkedInPost",
+      "description": "Generate LinkedIn post draft",
+      "trigger": "daily_at_09:00",
+      "command": "python watchers/linkedin_watcher.py --vault AI_Employee_Vault --generate-post"
+    },
+    {
+      "name": "AIEmployee_WeeklyAudit",
+      "description": "Weekly business audit",
+      "trigger": "monday_at_07:30",
+      "command": "claude --print '/daily-briefing'"
+    }
+  ]
+}
