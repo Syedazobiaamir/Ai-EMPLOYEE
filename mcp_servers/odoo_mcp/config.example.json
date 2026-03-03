@@ -1,0 +1,8 @@
+{
+  "odoo_url": "http://localhost:8069",
+  "odoo_db": "your_database_name",
+  "odoo_username": "admin",
+  "odoo_password": "your_odoo_password",
+  "company_name": "Your Company Name",
+  "currency": "PKR"
+}
