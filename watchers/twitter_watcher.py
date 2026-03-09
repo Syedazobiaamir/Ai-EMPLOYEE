@@ -45,7 +45,6 @@ def setup_twitter_session(profile_dir=TWITTER_PROFILE_DIR):
 
     profile_dir = Path(profile_dir)
     profile_dir.mkdir(parents=True, exist_ok=True)
-    print("\nOpening Twitter/X login page...")
     print("1. Log in to your Twitter/X account")
     print("2. Once on home timeline, session will be saved automatically\n")
 
@@ -54,9 +53,15 @@ def setup_twitter_session(profile_dir=TWITTER_PROFILE_DIR):
             user_data_dir=str(profile_dir),
             headless=False,
             slow_mo=500,
-            args=["--no-sandbox", "--window-size=1280,900"],
+            args=["--disable-blink-features=AutomationControlled", "--no-sandbox"],
+            ignore_default_args=["--enable-automation"],
+            viewport={"width": 1280, "height": 800},
         )
-        page = browser.new_page()
+        page = browser.pages[0] if browser.pages else browser.new_page()
+        page.add_init_script(
+            "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+        )
+        print("\nOpening X.com — bot detection disabled...")
         page.goto("https://x.com/login")
         try:
             # Wait for home timeline = successful login
@@ -89,28 +94,62 @@ def post_tweet(text, profile_dir=TWITTER_PROFILE_DIR, dry_run=False):
             browser = p.chromium.launch_persistent_context(
                 user_data_dir=str(profile_dir),
                 headless=False,
-                slow_mo=600,
-                args=["--no-sandbox", "--window-size=1280,900"],
+                slow_mo=200,
+                args=[
+                    "--disable-blink-features=AutomationControlled",
+                    "--no-sandbox",
+                ],
+                ignore_default_args=["--enable-automation"],
+                viewport={"width": 1280, "height": 800},
             )
-            page = browser.new_page()
-            page.goto("https://x.com/home")
-            page.wait_for_load_state("networkidle", timeout=15000)
+            page = browser.pages[0] if browser.pages else browser.new_page()
+            page.add_init_script(
+                "Object.defineProperty(navigator, 'webdriver', {get: () => undefined})"
+            )
 
-            # Click tweet compose box
-            compose = page.locator("[data-testid='tweetTextarea_0']").first
-            compose.wait_for(state="visible", timeout=15000)
-            compose.click()
+            page.goto("https://x.com/home", wait_until="domcontentloaded")
+            time.sleep(4)
+
+            # Press 'n' — Twitter keyboard shortcut to open compose dialog
+            page.keyboard.press("n")
+            time.sleep(2)
+
+            # Wait for compose textarea to appear
+            textarea = page.locator("[data-testid='tweetTextarea_0']").last
+            textarea.wait_for(state="visible", timeout=15000)
+            textarea.focus()
             time.sleep(0.5)
 
-            # Type the tweet
-            page.keyboard.type(text, delay=30)
-            time.sleep(1)
+            # Use execCommand('insertText') to insert text into DraftJS editor.
+            # keyboard.type() does NOT trigger DraftJS onChange; execCommand does.
+            result = page.evaluate(
+                """(text) => {
+                    const el = document.querySelector('[data-testid="tweetTextarea_0"]');
+                    el.focus();
+                    return document.execCommand('insertText', false, text);
+                }""",
+                text,
+            )
+            logger.info(f"execCommand result: {result}")
+            time.sleep(2)
 
-            # Click Tweet/Post button
-            tweet_btn = page.locator("[data-testid='tweetButtonInline']").first
-            tweet_btn.wait_for(state="visible", timeout=10000)
-            tweet_btn.click()
-            time.sleep(3)
+            # The modal Post button has data-testid='tweetButton' (not tweetButtonInline)
+            btn_state = page.evaluate(
+                """() => {
+                    const b = document.querySelector('[data-testid="tweetButton"]');
+                    return b ? {disabled: b.disabled, found: true} : {found: false};
+                }"""
+            )
+            logger.info(f"Post button state: {btn_state}")
+
+            if not btn_state.get("found"):
+                raise RuntimeError("Post button not found on page")
+            if btn_state.get("disabled"):
+                raise RuntimeError("Post button disabled — text not registered by editor")
+
+            # JS native .click() bypasses the div#layers overlay that blocks Playwright clicks
+            page.evaluate("document.querySelector('[data-testid=\"tweetButton\"]').click()")
+            time.sleep(5)
 
             logger.info(f"Tweeted: {text[:60]}...")
             browser.close()
