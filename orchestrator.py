@@ -456,6 +456,28 @@ class Orchestrator:
                 enabled=True
             ))
 
+        # Instagram/Facebook Watcher (Gold Tier) — only if session exists
+        if self.config.get('instagram', False):
+            cmd = [PYTHON, str(watchers_dir / 'instagram_watcher.py'), '--vault', vault_str]
+            cmd += base_flags
+            processes.append(WatcherProcess(
+                name='InstagramWatcher',
+                command=cmd,
+                vault_path=self.vault_path,
+                enabled=True
+            ))
+
+        # Twitter/X Watcher (Gold Tier) — only if session exists
+        if self.config.get('twitter', False):
+            cmd = [PYTHON, str(watchers_dir / 'twitter_watcher.py'), '--vault', vault_str]
+            cmd += base_flags
+            processes.append(WatcherProcess(
+                name='TwitterWatcher',
+                command=cmd,
+                vault_path=self.vault_path,
+                enabled=True
+            ))
+
         return processes
 
     def start(self):
@@ -542,7 +564,7 @@ class Orchestrator:
 
 def main():
     parser = argparse.ArgumentParser(
-        description='AI Employee — Master Orchestrator (Silver Tier)'
+        description='AI Employee — Master Orchestrator (Gold Tier)'
     )
     parser.add_argument('--vault', required=True,
                         help='Absolute path to AI_Employee_Vault folder')
@@ -554,6 +576,10 @@ def main():
                         help='Skip WhatsApp Watcher')
     parser.add_argument('--no-linkedin', action='store_true',
                         help='Skip LinkedIn Watcher')
+    parser.add_argument('--instagram', action='store_true',
+                        help='Enable Instagram/Facebook Watcher (Gold Tier, requires setup)')
+    parser.add_argument('--twitter', action='store_true',
+                        help='Enable Twitter/X Watcher (Gold Tier, requires setup)')
     args = parser.parse_args()
 
     vault_path = Path(args.vault).resolve()
@@ -570,6 +596,8 @@ def main():
         'gmail': not args.no_gmail,
         'whatsapp': not args.no_whatsapp,
         'linkedin': not args.no_linkedin,
+        'instagram': args.instagram,
+        'twitter': args.twitter,
     }
 
     orchestrator = Orchestrator(vault_path, config)

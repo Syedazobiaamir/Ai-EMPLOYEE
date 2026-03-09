@@ -15,6 +15,10 @@ status: active
 | Task Scheduler | 5/5 tasks active | 2026-02-27 |
 | Claude Code | Active | — |
 | Vault | Healthy | 2026-03-02 21:08 |
+| Instagram Watcher | **LIVE** (session saved) | 2026-03-04 |
+| Facebook Watcher | **LIVE** (session saved) | 2026-03-04 |
+| Twitter Watcher | Ready (run --setup-twitter) | 2026-03-04 |
+| Odoo MCP Server | **LIVE** (localhost:8069) | 2026-03-04 |
 
 ## Inbox Summary
 - **Pending items:** 1 (Inbox)
@@ -70,6 +74,12 @@ status: active
 - [2026-03-02 21:27] 📱 WhatsApp checked — browser connected, 0 new messages (27 already processed)
 - [2026-03-02 21:35] 📊 Weekly CEO Briefing generated → /Briefings/2026-03-02_Weekly_CEO_Briefing.md
 - [2026-03-02 21:30] 🧾 Invoice drafted — INV-20260302-001 | +92 348 2228888 | 2x Organic Shampoo | Rs. 2,400 → /Pending_Approval/
+- [2026-03-04 19:40] ✅ Instagram session saved — config/instagram_profile/ (browser UI automation LIVE)
+- [2026-03-04 19:40] ✅ Facebook session saved — config/instagram_profile/ (shared profile, browser UI automation LIVE)
+- [2026-03-04 19:50] ✅ Odoo 17 deployed — Docker (localhost:8069), db=ai_employee, accounting module installed
+- [2026-03-04 19:50] ✅ Odoo MCP server created — mcp_servers/odoo_mcp/index.js (xmlrpc, 9 tools)
+- [2026-03-04 19:50] ✅ Odoo sample data: 2 customers, 3 products, 1 invoice (Acme Corp, PKR 50,000)
+- [2026-03-04 19:50] ✅ Gold Tier COMPLETE — 24/24 tests passing, all integrations live
 
 ## Pending Approvals
 - None
@@ -91,5 +101,5 @@ status: active
 
 ## Orchestrator Status
 - **Status:** running
-- **Last update:** 2026-03-02 15:32:10
+- **Last update:** 2026-03-09 15:02:28
 - **Dry-run:** False

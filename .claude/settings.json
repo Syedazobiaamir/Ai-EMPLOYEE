@@ -1,0 +1,35 @@
+{
+  "hooks": {
+    "Stop": [
+      {
+        "matcher": "",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "python .claude/hooks/stop.py"
+          }
+        ]
+      }
+    ]
+  },
+  "mcpServers": {
+    "email": {
+      "command": "node",
+      "args": ["mcp_servers/email_mcp/index.js"],
+      "env": {
+        "GMAIL_CREDENTIALS_PATH": "config/gmail_credentials.json",
+        "GMAIL_TOKEN_PATH": "config/gmail_token.json"
+      }
+    },
+    "odoo": {
+      "command": "node",
+      "args": ["mcp_servers/odoo_mcp/index.js"],
+      "env": {
+        "ODOO_URL": "http://localhost:8069",
+        "ODOO_DB": "ai_employee",
+        "ODOO_USER": "admin",
+        "ODOO_PASSWORD": "admin123"
+      }
+    }
+  }
+}

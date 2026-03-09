@@ -1,0 +1,8 @@
+{
+  "odoo_url": "http://localhost:8069",
+  "odoo_db": "ai_employee",
+  "odoo_username": "admin",
+  "odoo_password": "admin123",
+  "company_name": "AI Employee Business",
+  "currency": "PKR"
+}
