@@ -110,34 +110,46 @@ def post_tweet(text, profile_dir=TWITTER_PROFILE_DIR, dry_run=False):
             page.goto("https://x.com/home", wait_until="domcontentloaded")
             time.sleep(4)
 
-            # Press 'n' — Twitter keyboard shortcut to open compose dialog
+            # Press 'n' — Twitter keyboard shortcut to open compose modal
             page.keyboard.press("n")
             time.sleep(2)
 
             # Wait for compose textarea to appear
             textarea = page.locator("[data-testid='tweetTextarea_0']").last
             textarea.wait_for(state="visible", timeout=15000)
-            textarea.focus()
+
+            # Use JS focus (not .click()) — div#layers overlay blocks Playwright clicks
+            page.evaluate(
+                """() => {
+                    const els = document.querySelectorAll('[data-testid="tweetTextarea_0"]');
+                    const el = els[els.length - 1];
+                    el.focus();
+                    // Clear any existing text
+                    document.execCommand('selectAll', false, null);
+                    document.execCommand('delete', false, null);
+                }"""
+            )
             time.sleep(0.5)
 
-            # Use execCommand('insertText') to insert text into DraftJS editor.
-            # keyboard.type() does NOT trigger DraftJS onChange; execCommand does.
-            result = page.evaluate(
-                """(text) => {
-                    const el = document.querySelector('[data-testid="tweetTextarea_0"]');
-                    el.focus();
-                    return document.execCommand('insertText', false, text);
-                }""",
-                text,
+            # Write text to clipboard via PowerShell and paste with Ctrl+V
+            # Clipboard paste reliably triggers DraftJS onChange
+            import subprocess
+            safe_text = text.replace("'", "\\'")
+            subprocess.run(
+                ["powershell", "-command", f"Set-Clipboard '{safe_text}'"],
+                capture_output=True
             )
-            logger.info(f"execCommand result: {result}")
-            time.sleep(2)
+            page.keyboard.press("Control+v")
+            time.sleep(1.5)
+            logger.info("Text pasted via clipboard")
+            time.sleep(1)
 
-            # The modal Post button has data-testid='tweetButton' (not tweetButtonInline)
+            # Try modal button first (tweetButton), fall back to inline (tweetButtonInline)
             btn_state = page.evaluate(
                 """() => {
-                    const b = document.querySelector('[data-testid="tweetButton"]');
-                    return b ? {disabled: b.disabled, found: true} : {found: false};
+                    const b = document.querySelector('[data-testid="tweetButton"]')
+                           || document.querySelector('[data-testid="tweetButtonInline"]');
+                    return b ? {disabled: b.disabled, found: true, testid: b.getAttribute('data-testid')} : {found: false};
                 }"""
             )
             logger.info(f"Post button state: {btn_state}")
@@ -148,7 +160,8 @@ def post_tweet(text, profile_dir=TWITTER_PROFILE_DIR, dry_run=False):
                 raise RuntimeError("Post button disabled — text not registered by editor")
 
             # JS native .click() bypasses the div#layers overlay that blocks Playwright clicks
-            page.evaluate("document.querySelector('[data-testid=\"tweetButton\"]').click()")
+            testid = btn_state.get("testid", "tweetButton")
+            page.evaluate(f"document.querySelector('[data-testid=\"{testid}\"]').click()")
             time.sleep(5)
 
             logger.info(f"Tweeted: {text[:60]}...")

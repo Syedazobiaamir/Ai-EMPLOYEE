@@ -6,8 +6,20 @@ from pathlib import Path
 
 # instagram_profile has a valid Facebook session too
 FACEBOOK_PROFILE_DIR = Path("config/instagram_profile")
+VAULT_APPROVED = Path("AI_Employee_Vault/Approved")
 
-TEXT = """Our AI Employee just posted to Instagram automatically!
+def load_approved_post():
+    """Read post content from vault /Approved/FACEBOOK_POST_*.md if exists."""
+    import re
+    for f in sorted(VAULT_APPROVED.glob("FACEBOOK_POST_*.md")):
+        content = f.read_text(encoding="utf-8")
+        m = re.search(r"## Post Content\s*\n+(.*?)(?:\n## |\Z)", content, re.DOTALL)
+        if m:
+            print(f"Loaded post from vault: {f.name}")
+            return m.group(1).strip(), f
+    return None, None
+
+DEFAULT_TEXT = """Our AI Employee just posted to Instagram automatically!
 
 Every morning it autonomously:
 - Reads WhatsApp & Gmail
@@ -21,6 +33,9 @@ Built with Claude Code in 72 hours for the #AIEmployee hackathon.
 This post was written and published automatically by the AI Employee.
 
 #AI #Automation #AIEmployee #ClaudeAI #SmallBusiness #Pakistan"""
+
+vault_text, vault_file = load_approved_post()
+TEXT = vault_text if vault_text else DEFAULT_TEXT
 
 
 def main():
@@ -105,10 +120,14 @@ def main():
         page.screenshot(path="fb_post_step2.png")
         print("Screenshot: fb_post_step2.png")
 
-        # Click Post button
+        # Click Post button — use JS click to bypass overlay div intercepting pointer events
         print("\nClicking Post...")
         try:
-            page.get_by_role("button", name="Post").last.click()
+            page.evaluate("""
+                const btns = [...document.querySelectorAll('[role="button"][aria-label="Post"]')];
+                const btn = btns[btns.length - 1];
+                if (btn) btn.click();
+            """)
             print("Post clicked!")
         except Exception as e:
             print(f"Post button: {e}")
@@ -119,6 +138,13 @@ def main():
         print("\nDone! Closing in 5s...")
         page.wait_for_timeout(5000)
         browser.close()
+
+    # Move vault file to Done
+    if vault_file and vault_file.exists():
+        done_dir = Path("AI_Employee_Vault/Done")
+        done_dir.mkdir(exist_ok=True)
+        vault_file.rename(done_dir / vault_file.name)
+        print(f"Moved {vault_file.name} -> /Done/")
 
 
 if __name__ == "__main__":

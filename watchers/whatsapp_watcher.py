@@ -433,9 +433,17 @@ def send_reply_browser(sender_name: str, reply_text: str,
         ctx.add_init_script(_INIT_SCRIPT)
         page = ctx.pages[0] if ctx.pages else ctx.new_page()
 
+        QR_SELECTORS = 'canvas[aria-label*="QR"], [data-ref], [data-testid="qrcode"]'
         try:
             page.goto('https://web.whatsapp.com')
-            page.wait_for_selector(_CHAT_LIST, timeout=30000)
+            # Wait for either chat list or QR code
+            page.wait_for_selector(f'{_CHAT_LIST}, {QR_SELECTORS}', timeout=60000)
+            # If QR code appeared, wait for user to scan (up to 3 minutes)
+            qr = page.query_selector(QR_SELECTORS)
+            if qr:
+                print('QR code detected — please scan with your phone within 3 minutes...')
+                page.wait_for_selector(_CHAT_LIST, timeout=180000)
+                print('QR scan successful!')
             print('WhatsApp Web loaded.')
 
             # Click the search input and type the contact name
